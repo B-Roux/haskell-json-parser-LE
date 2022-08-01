@@ -110,6 +110,14 @@ manyOf p stream = f stream [] where
         Nothing -> Just (reverse acc, xs)
         Just (c, rem) -> f rem (c:acc)
 
+-- Match a parser 1 or more times
+oneOrMore :: Parser a -> Parser[a]
+oneOrMore p stream = case p stream of
+    Nothing -> Nothing
+    Just (c, rem) -> case manyOf p rem of
+        Nothing -> Just (c:[], rem)
+        Just (cs, rem') -> Just (c:cs, rem')
+
 -- Optionally match, otherwise don't consume input
 optional :: Parser a -> Parser (Maybe a)
 optional p stream = case p stream of
