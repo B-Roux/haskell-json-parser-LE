@@ -1,3 +1,4 @@
+module JSONParser (pJSON) where
 
 -- This parser is (loosely) based on the official JSON spec
 -- (available at https://www.json.org/json-en.html)
@@ -16,7 +17,6 @@
 --          between these, even most parsers do.
 
 import Parser
-import Text.Read (readMaybe)
 
 data JsonValue = JString String
                | JNumber Double
@@ -24,15 +24,30 @@ data JsonValue = JString String
                | JArray [JsonValue]
                | JBool Bool
                | JNull
-               deriving (Show, Eq)
+               deriving (Show)
+
+-- Convenience function
+pJSON :: Parser JsonValue
+pJSON stream = pJValue stream
 
 -- Match a JSON object
 pJObject :: Parser JsonValue
-pJObject stream = undefined
+pJObject stream = between
+    (pChar '{' .>> pJWhitespace)
+    (pJWhitespace >>. pChar '}')
+    (arrayOf (pChar ',') (
+        (pJWhitespace >>. pJString' .>> pJWhitespace)
+        .>>. (pChar ':' >>. pJValue)
+    )) |=> JObject
+    $ stream
 
 -- Match a JSON array
 pJArray :: Parser JsonValue
-pJArray stream = undefined
+pJArray stream = between
+    (pChar '[')
+    (pChar ']')
+    (arrayOf (pChar ',') pJValue) |=> JArray
+    $ stream
 
 -- Match any JSON value
 pJValue :: Parser JsonValue
@@ -41,16 +56,21 @@ pJValue stream = between
     pJWhitespace
     (choice [ pJString
             , pJNumber
-            -- , pJObject
-            -- , pJArray
+            , pJObject
+            , pJArray
             , pJBool
             , pJNull
             ])
     $ stream
 
 -- Match a JSON string
-pJString :: Parser  JsonValue
-pJString stream = between
+pJString :: Parser JsonValue
+pJString stream = pJString' |=> JString
+    $ stream
+
+-- Parse as a string
+pJString' :: Parser String
+pJString' stream = between
     (pChar '"')
     (pChar '"')
     (manyOf (pChar '\\' >>. choice
@@ -61,9 +81,7 @@ pJString stream = between
         , pChar 'n' |-> '\n'
         , pChar 'r' |-> '\r'
         , pChar 't' |-> '\t'
-        -- TODO: Add unicode parsing?
-        ] <|> anyCharBut '\"'
-    ) |=> JString)
+        ] <|> anyCharBut '\"'))
     $ stream
 
 -- Match a JSON number

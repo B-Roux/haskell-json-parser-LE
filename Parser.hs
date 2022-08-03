@@ -131,3 +131,12 @@ sequenceOf ps' stream = f ps' stream [] where
     f (p:ps) ys acc = case p ys of
         Nothing -> Nothing
         Just (c, rem) -> f ps rem (c:acc)
+
+-- Match an array of parsers with separators
+arrayOf :: Parser s -> Parser a -> Parser [a]
+arrayOf psep pitem stream = case pitem stream of
+    Nothing -> Just ([], stream)
+    Just (c, rem) ->
+        case (manyOf (psep >>. pitem) rem) of
+            Nothing -> Just ([c], rem)
+            Just (cs, rem') -> Just (c:cs, rem')
